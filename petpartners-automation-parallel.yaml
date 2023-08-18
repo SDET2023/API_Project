@@ -1,0 +1,135 @@
+version: "3"
+services:
+
+  chrome:
+    image: selenium/node-chrome:4.8.3
+    shm_size: 2gb
+    depends_on:
+      - selenium-hub
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_SESSION_REQUEST_TIMEOUT=10
+      - SE_SESSION_RETRY_INTERVAL=1
+      - SE_NODE_MAX_SESSIONS=2
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+  edge:
+    image: selenium/node-edge:4.8.3
+    shm_size: 2gb
+    depends_on:
+      - selenium-hub
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+
+  firefox:
+    image: selenium/node-firefox:4.8.3
+    shm_size: 2gb
+    depends_on:
+      - selenium-hub
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+
+  selenium-hub:
+    image: selenium/hub:4.8.3
+    container_name: selenium-hub
+    ports:
+      - "4442:4442"
+      - "4443:4443"
+      - "4444:4444"
+    environment:
+      - SE_SESSION_REQUEST_TIMEOUT=10
+      - SE_SESSION_RETRY_INTERVAL=2
+      - SE_NODE_SESSION_TIMEOUT=10
+      - GRID_BROWSER_TIMEOUT= 30
+
+  automation-petpartners-ui-akc:
+    build: .
+    container_name: automation-petpartners-ui-akc
+    environment:
+      - SUITE=$SUITE
+      - ENVIRONMENT=$ENVIRONMENT
+      - PROJECT=petpartners-ui-akc
+      - BROWSER=$BROWSER
+      - GENERATE_GIF_IMAGE=$GENERATE_GIF_IMAGE
+      - EXCLUDE=$EXCLUDE
+      - MFA=$MFA
+    volumes:
+      - ./report-automation-akc/:/tmp/report/
+
+  automation-petpartners-ui-ppi:
+    build: .
+    container_name: automation-petpartners-ui-ppi
+    environment:
+      - SUITE=$SUITE
+      - ENVIRONMENT=$ENVIRONMENT
+      - PROJECT=petpartners-ui-ppi
+      - BROWSER=$BROWSER
+      - GENERATE_GIF_IMAGE=$GENERATE_GIF_IMAGE
+      - EXCLUDE=$EXCLUDE
+      - MFA=$MFA
+    volumes:
+      - ./report-automation-ppi/:/tmp/report/
+
+  automation-petpartners-api:
+    build: .
+    container_name: automation-petpartners-api
+    environment:
+      - SUITE=$SUITE
+      - ENVIRONMENT=$ENVIRONMENT
+      - PROJECT=petpartners-api
+      - BROWSER=$BROWSER
+      - GENERATE_GIF_IMAGE=$GENERATE_GIF_IMAGE
+      - EXCLUDE=$EXCLUDE
+      - MFA=$MFA
+    volumes:
+      - ./report-automation-api/:/tmp/report/
+
+  automation-petpartners-ui-paw-some:
+    build: .
+    container_name: automation-petpartners-ui-paw-some
+    environment:
+      - SUITE=$SUITE
+      - ENVIRONMENT=$ENVIRONMENT
+      - PROJECT=petpartners-ui-paw-some
+      - BROWSER=$BROWSER
+      - GENERATE_GIF_IMAGE=$GENERATE_GIF_IMAGE
+      - EXCLUDE=$EXCLUDE
+      - MFA=$MFA
+    volumes:
+      - ./report-automation-paw-some/:/tmp/report/
+
+
+  automation-petpartners-ui-orca:
+    build: .
+    container_name: automation-petpartners-ui-orca
+    environment:
+      - SUITE=$ORCA_SUITE1
+      - ENVIRONMENT=$ENVIRONMENT
+      - PROJECT=petpartners-ui-orca
+      - BROWSER=$BROWSER
+      - GENERATE_GIF_IMAGE=$GENERATE_GIF_IMAGE
+      - EXCLUDE=$EXCLUDE
+      - MFA=$MFA
+    volumes:
+      - ./report-automation-orca/:/tmp/report/
+
+
+
+  automation-petpartners-ui-orca2:
+    build: .
+    container_name: automation-petpartners-ui-orca2
+    environment:
+      - SUITE=$ORCA_SUITE2
+      - ENVIRONMENT=$ENVIRONMENT
+      - PROJECT=petpartners-ui-orca
+      - BROWSER=$BROWSER
+      - GENERATE_GIF_IMAGE=$GENERATE_GIF_IMAGE
+      - EXCLUDE=$EXCLUDE
+      - MFA=$MFA
+    volumes:
+      - ./report-automation-orca2/:/tmp/report/

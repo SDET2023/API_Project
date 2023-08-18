@@ -1,0 +1,8 @@
+include 'petpartners-ui-akc'
+include 'petpartners-ui-ppi'
+include 'petpartners-api'
+include 'petpartners-common'
+include 'petpartners-ui-orca'
+include 'petpartners-ui-paw-some'
+include 'petpartners-ui-petcloud'
+

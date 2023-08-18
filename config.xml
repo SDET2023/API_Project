@@ -1,0 +1,174 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job@1145.v7f2433caa07f">
+  <actions>
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobAction plugin="pipeline-model-definition@1.9.3"/>
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction plugin="pipeline-model-definition@1.9.3">
+      <jobProperties/>
+      <triggers/>
+      <parameters/>
+      <options/>
+    </org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction>
+  </actions>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty>
+      <abortPrevious>false</abortPrevious>
+    </org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>suite</name>
+          <description>@Sanity ----&gt; just we are going to execute the sanity test (quickly execution)
+@Regression ----&gt; all test are going to be executed </description>
+          <defaultValue>@Sanity</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>environment</name>
+          <defaultValue>staging.properties</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>email_to</name>
+          <defaultValue>eynar.pari@nybblegroup.com;nregula@petpartners.com;shackett@petpartners.com;mpacheco@petpartners.com;balagappan@petpartners.com;esharma@petpartners.com;rloving@petpartners.com;jgriffin@petpartners.com;gzhou@petpartners.com;ijohnson@petpartners.com;jbland@petpartners.com</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>email_subject</name>
+          <defaultValue>Automation Result - Sanity Test</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>branch</name>
+          <description>automation project branch :main</description>
+          <defaultValue>main</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.ChoiceParameterDefinition>
+          <name>project</name>
+          <choices class="java.util.Arrays$ArrayList">
+            <a class="string-array">
+              <string>all-projects</string>
+              <string>petpartners-ui-orca</string>
+              <string>petpartners-ui-ppi</string>
+              <string>petpartners-ui-akc</string>
+              <string>petpartners-api</string>
+            </a>
+          </choices>
+        </hudson.model.ChoiceParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+    <org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+      <triggers>
+        <hudson.triggers.TimerTrigger>
+          <spec>30 23 * * 1-5</spec>
+        </hudson.triggers.TimerTrigger>
+      </triggers>
+    </org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+  </properties>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@2648.va9433432b33c">
+    <script>
+pipeline { 
+    agent any 
+    environment {
+        MAIN_PATH = &apos;/home/ppideveloper/automation/&apos;
+        TOKEN = &apos;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&apos;
+    }
+    stages {
+        stage(&apos;Automation&apos;) { 
+            steps { 
+             sh &apos;&apos;&apos;
+                 set +e
+                 docker stop $(docker ps -aq)
+                 docker rm -f $(docker ps -aq)
+                 rm -rf ${MAIN_PATH}petpartners-automation
+                 rm -rf /home/ppideveloper/automation/petpartners-automation/$project/build/reports/cucumber
+                &apos;&apos;&apos;
+             sh &apos;&apos;&apos;
+                 whoami
+                 cd $MAIN_PATH
+                 git clone -b $branch https://oauth:$TOKEN@github.com/petpartners/petpartners-automation.git
+                 cd ${MAIN_PATH}petpartners-automation
+                 git reset --hard
+                 git pull
+             &apos;&apos;&apos;
+             sh &apos;&apos;&apos;
+                 set -e
+                 cd ${MAIN_PATH}petpartners-automation/
+                 docker-compose -f petpartners-selenium-grid.yaml up -d
+                 docker-compose -f petpartners-selenium-grid.yaml ps
+                 sleep 30s
+             &apos;&apos;&apos;
+             sh &apos;&apos;&apos;
+                 printenv
+                 if [ &quot;$project&quot; = &quot;all-projects&quot; ]; then
+                   echo &quot;INFO &gt; All Execution : $project&quot;
+                   mkdir -p /home/ppideveloper/automation/petpartners-automation/$project/build/reports/cucumber
+                   
+                   cd ${MAIN_PATH}petpartners-automation/petpartners-ui-orca/src/test/resources
+                   sed -i &quot;/browser=/c browser=headless&quot; $environment
+                   cat $environment
+                   cd ${MAIN_PATH}petpartners-automation/petpartners-ui-orca
+                   set +e
+                   gradle clean build cucumber -Psuite=$suite -PpropertyFile=$environment
+                   set -e
+                   cp ${MAIN_PATH}petpartners-automation/petpartners-ui-orca/build/reports/cucumber/report.json /home/ppideveloper/automation/petpartners-automation/$project/build/reports/cucumber/report-orca.json
+                   
+                   cd ${MAIN_PATH}petpartners-automation/petpartners-ui-ppi/src/test/resources
+                   sed -i &quot;/browser=/c browser=headless&quot; $environment
+                   cat $environment
+                   cd ${MAIN_PATH}petpartners-automation/petpartners-ui-ppi
+                   set +e
+                   gradle clean build cucumber -Psuite=$suite -PpropertyFile=$environment
+                   set -e
+                   cp ${MAIN_PATH}petpartners-automation/petpartners-ui-ppi/build/reports/cucumber/report.json /home/ppideveloper/automation/petpartners-automation/$project/build/reports/cucumber/report-ppi.json
+
+                   cd ${MAIN_PATH}petpartners-automation/petpartners-ui-akc/src/test/resources
+                   sed -i &quot;/browser=/c browser=headless&quot; $environment
+                   cat $environment
+                   cd ${MAIN_PATH}petpartners-automation/petpartners-ui-akc
+                   set +e
+                   gradle clean build cucumber -Psuite=$suite -PpropertyFile=$environment
+                   set -e
+                   cp ${MAIN_PATH}petpartners-automation/petpartners-ui-akc/build/reports/cucumber/report.json /home/ppideveloper/automation/petpartners-automation/$project/build/reports/cucumber/report-akc.json
+
+
+                else
+                   echo &quot;INFO &gt; Execution : $project&quot;
+                   cd ${MAIN_PATH}petpartners-automation/$project/src/test/resources
+                   sed -i &quot;/browser=/c browser=headless&quot; $environment
+                   cat $environment
+                   cd ${MAIN_PATH}petpartners-automation/$project
+                   gradle clean build cucumber -Psuite=$suite -PpropertyFile=$environment
+                   sleep 15s
+                fi
+             &apos;&apos;&apos;
+            }
+        post {
+                always {
+                    cucumber buildStatus: &apos;FAILURE&apos; ,customCssFiles: &apos;&apos;, customJsFiles: &apos;&apos;, failedFeaturesNumber: -1, failedScenariosNumber: -1, failedStepsNumber: -1, fileIncludePattern: &apos;**/*.json&apos;, jsonReportDirectory: &apos;/home/ppideveloper/automation/petpartners-automation/$project/build/reports/cucumber&apos;, pendingStepsNumber: -1, skippedStepsNumber: -1, sortingMethod: &apos;ALPHABETICAL&apos;, undefinedStepsNumber: -1
+                    sh &apos;&apos;&apos;
+                        cd ${MAIN_PATH}petpartners-automation/petpartners-common/src/main/resources/
+                        sed -i &quot;/environmentInformation=/c environmentInformation=urlWeb https://orca.stg.petpartners.com/ &lt;br&gt;user eynar.pari@nybblegroup.com &lt;br&gt;password Eynar123 &lt;br&gt;browser:chrome&quot; email.properties
+                        sed -i &quot;/emailTo=/c emailTo=${email_to}&quot; email.properties
+                        sed -i &quot;/messageSubject=/c messageSubject=${email_subject} : ${project}&quot; email.properties
+                        sed -i &quot;/user=/c user=eynar.gamer87@gmail.com&quot; email.properties
+                        sed -i &quot;/pwd=/c pwd=Gamer123&quot; email.properties
+                        sed -i &quot;/reportLink=/c reportLink=http://10.60.3.11:8080/job/continuousTesting/$BUILD_NUMBER/cucumber-html-reports/overview-features.html&quot; email.properties
+                        sed -i &quot;/reportFile=/c reportFile=/var/lib/jenkins/jobs/continuousTesting/builds/$BUILD_NUMBER/cucumber-html-reports/overview-features.html&quot; email.properties
+                        cat email.properties
+                        cd ${MAIN_PATH}petpartners-automation/petpartners-common
+                        gradle email
+                     &apos;&apos;&apos;
+            }
+         }
+        
+    }
+}
+}</script>
+    <sandbox>true</sandbox>
+  </definition>
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>

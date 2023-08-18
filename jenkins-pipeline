@@ -1,0 +1,112 @@
+
+pipeline {
+    agent any
+    environment {
+        MAIN_PATH = '/home/ppideveloper/automation/'
+        TOKEN = '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'
+    }
+    stages {
+        stage('Automation') {
+            steps {
+             sh '''
+                 set +e
+                 docker stop $(docker ps -aq)
+                 docker rm -f $(docker ps -aq)
+                 rm -rf ${MAIN_PATH}petpartners-automation
+                 rm -rf /home/ppideveloper/automation/petpartners-automation/$project/build/reports/cucumber
+                '''
+             sh '''
+                 whoami
+                 cd $MAIN_PATH
+                 git clone -b $branch https://oauth:$TOKEN@github.com/petpartners/petpartners-automation.git
+                 cd ${MAIN_PATH}petpartners-automation
+                 git reset --hard
+                 git pull
+             '''
+             sh '''
+                 set -e
+                 cd ${MAIN_PATH}petpartners-automation/
+                 docker-compose -f petpartners-selenium-grid.yaml up -d
+                 docker-compose -f petpartners-selenium-grid.yaml ps
+                 sleep 30s
+             '''
+             sh '''
+                 printenv
+                 if [ "$project" = "all-projects" ]; then
+                   echo "INFO > All Execution : $project"
+                   mkdir -p /home/ppideveloper/automation/petpartners-automation/$project/build/reports/cucumber
+
+                   cd ${MAIN_PATH}petpartners-automation/petpartners-ui-orca/src/test/resources
+                   sed -i "/browser=/c browser=headless" $environment
+                   cat $environment
+                   cd ${MAIN_PATH}petpartners-automation/petpartners-ui-orca
+                   set +e
+                   gradle clean build cucumber -Psuite=$suite -PpropertyFile=$environment
+                   set -e
+                   cp ${MAIN_PATH}petpartners-automation/petpartners-ui-orca/build/reports/cucumber/report.json /home/ppideveloper/automation/petpartners-automation/$project/build/reports/cucumber/report-orca.json
+
+                   cd ${MAIN_PATH}petpartners-automation/petpartners-ui-ppi/src/test/resources
+                   sed -i "/browser=/c browser=headless" $environment
+                   cat $environment
+                   cd ${MAIN_PATH}petpartners-automation/petpartners-ui-ppi
+                   set +e
+                   gradle clean build cucumber -Psuite=$suite -PpropertyFile=$environment
+                   set -e
+                   cp ${MAIN_PATH}petpartners-automation/petpartners-ui-ppi/build/reports/cucumber/report.json /home/ppideveloper/automation/petpartners-automation/$project/build/reports/cucumber/report-ppi.json
+
+                   cd ${MAIN_PATH}petpartners-automation/petpartners-ui-akc/src/test/resources
+                   sed -i "/browser=/c browser=headless" $environment
+                   cat $environment
+                   cd ${MAIN_PATH}petpartners-automation/petpartners-ui-akc
+                   set +e
+                   gradle clean build cucumber -Psuite=$suite -PpropertyFile=$environment
+                   set -e
+                   cp ${MAIN_PATH}petpartners-automation/petpartners-ui-akc/build/reports/cucumber/report.json /home/ppideveloper/automation/petpartners-automation/$project/build/reports/cucumber/report-akc.json
+
+                   cd ${MAIN_PATH}petpartners-automation/petpartners-api/src/test/resources
+                   cat $environment
+                   cd ${MAIN_PATH}petpartners-automation/petpartners-api
+                   set +e
+                   gradle clean build cucumber -Psuite=$suite -PpropertyFile=$environment
+                   set -e
+                   cp ${MAIN_PATH}petpartners-automation/petpartners-api/build/reports/cucumber/report.json /home/ppideveloper/automation/petpartners-automation/$project/build/reports/cucumber/report-api.json
+
+
+                else
+                   echo "INFO > Execution : $project"
+                   cd ${MAIN_PATH}petpartners-automation/$project/src/test/resources
+                   sed -i "/browser=/c browser=headless" $environment
+                   cat $environment
+                   cd ${MAIN_PATH}petpartners-automation/$project
+                   gradle clean build cucumber -Psuite=$suite -PpropertyFile=$environment
+                   sleep 15s
+                fi
+             '''
+            }
+        post {
+                always {
+                    cucumber buildStatus: 'FAILURE' ,customCssFiles: '', customJsFiles: '', failedFeaturesNumber: -1, failedScenariosNumber: -1, failedStepsNumber: -1, fileIncludePattern: '**/*.json', jsonReportDirectory: '/home/ppideveloper/automation/petpartners-automation/$project/build/reports/cucumber', pendingStepsNumber: -1, skippedStepsNumber: -1, sortingMethod: 'ALPHABETICAL', undefinedStepsNumber: -1
+                    sh '''
+                        cd ${MAIN_PATH}petpartners-automation/petpartners-common/src/main/resources/
+
+                        FILE_PROPERTIES=${MAIN_PATH}petpartners-automation/petpartners-ui-orca/src/test/resources/$environment
+                        sed "s/$/<br>/" $FILE_PROPERTIES > /tmp/environment.txt
+                        tr --delete '\n' <  /tmp/environment.txt > /tmp/environmentLine.txt
+                        ENV_INFO=$(cat /tmp/environmentLine.txt)
+                        sed -i "/emailTo=/c emailTo=${email_to}" email.properties
+                        sed -i "/messageSubject=/c messageSubject=${email_subject} : ${project}" email.properties
+                        sed -i "/user=/c user=qaautomation.results@petpartners.com" email.properties
+                        sed -i "/pwd=/c pwd=PUT_PASSWORD" email.properties
+                        sed -i "/reportLink=/c reportLink=http://10.60.3.11:8080/job/continuousTesting/$BUILD_NUMBER/cucumber-html-reports/overview-features.html" email.properties
+                        sed -i "/reportFile=/c reportFile=/var/lib/jenkins/jobs/continuousTesting/builds/$BUILD_NUMBER/cucumber-html-reports/overview-features.html" email.properties
+                        sed -i "/environmentInformation=/c environmentInformation=file:<b>$environment</b><br>$ENV_INFO" email.properties
+                        cat email.properties
+                        cd ${MAIN_PATH}petpartners-automation/petpartners-common
+                        gradle email
+                     '''
+            }
+         }
+
+    }
+}
+}
